@@ -1,6 +1,7 @@
 const redisClinet = require('../dao/RedisClient');
 const uuid = require('node-uuid');
 const express = require('express');
+const moment = require('moment')
 const router = express.Router();
 const ErrorBo = require('../bo/ErrorBo');
 const TaskBo = require('../bo/TaskBo');
@@ -30,6 +31,19 @@ function checkTaskAndUser(response, taskId, user, checkOkHandler) {
   });
 }
 
+function checkUserDrawedTask(response, taskId, user, checkOkHandler) {
+  redisClinet.get(`taskStatus:${taskId}`, ({ status, userId }) => {
+    if (status !== '01' || userId !== user) {
+      throwError(response, 'TASK0006', '用户未领取该任务');
+    } else {
+      checkOkHandler();
+    }
+  });
+}
+
+function getNowTimeString(){
+  return moment(new Date).format("YYYY-MM-DD HH:mm:ss");
+}
 
 /**
  * 领取任务 
@@ -41,6 +55,9 @@ router.post('/drawTask', (req, res, next) => {
   checkTaskAndUser(res, taskId, user, () => {
     //同时领取时有并发风险
     redisClinet.get(`taskStatus:${taskId}`, ({ status }) => {
+      if (status === '01' && user === user) {
+        res.end(JSON.stringify({ success: true }));
+      }
       if (status !== '00') {
         throwError(res, 'TASK0003', '任务无法被领取');
       } else {
@@ -50,12 +67,16 @@ router.post('/drawTask', (req, res, next) => {
           }
           userList.forEach(tmpUser => {
             if (tmpUser !== user) {
-              redisClinet.zrem(`u:${tmpUser}`, taskId);
+              redisClinet.zrem(`u_todo:${tmpUser}`, taskId);
             }
           });
           redisClinet.set(`taskStatus:${taskId}`, {
-            status: '01',
+            status: '01', //领取
             userId: user
+          })
+          redisClinet.lpush(`taskFlow:${taskId}`, {
+            time: getNowTimeString(),
+            action: `draw by ${user}`
           })
           res.end(JSON.stringify({ success: true }));
         });
@@ -72,28 +93,50 @@ router.post('/drawTask', (req, res, next) => {
 router.post('/undrawTask', (req, res, next) => {
   const { taskId, user } = req.body;
   checkTaskAndUser(res, taskId, user, () => {
-    redisClinet.get(`taskStatus:${taskId}`, ({ status, userId }) => {
-      if(status !== '01' || userId !== user){
-        throwError(res, 'TASK0005', '任务不属于该用户');
-      }else{
-        redisClinet.smembers(`taskUser:${taskId}`, userList => {
-          userList.forEach(tmpUser => {
-            if (tmpUser !== user) {
-              redisClinet.zadd(`u:${tmpUser}`,new Date().getTime(),taskId);
-            }
-          });
-          redisClinet.set(`taskStatus:${taskId}`, {
-            status: '00'
-          })
-          res.end(JSON.stringify({ success: true }));
+    checkUserDrawedTask(res, taskId, user, () => {
+      redisClinet.smembers(`taskUser:${taskId}`, userList => {
+        userList.forEach(tmpUser => {
+          if (tmpUser !== user) {
+            redisClinet.zadd(`u_todo:${tmpUser}`, new Date().getTime(), taskId);
+          }
         });
-      }
-    });
+        redisClinet.set(`taskStatus:${taskId}`, {
+          status: '00'
+        })
+        redisClinet.lpush(`taskFlow:${taskId}`, {
+          time: getNowTimeString(),
+          action: `undraw by ${user}`
+        })
+        res.end(JSON.stringify({ success: true }));
+      });
+    })
   });
 });
 
 
-
+/**
+ * 提交任务 
+ * taskId: 流程ID
+ * user: 领取用户Id
+ */
+router.post('/commitTask', (req, res, next) => {
+  const { taskId, user } = req.body;
+  checkTaskAndUser(res, taskId, user, () => {
+    checkUserDrawedTask(res, taskId, user, () => {
+      redisClinet.set(`taskStatus:${taskId}`, {
+        status: '02', //完成
+        userId: user
+      })
+      redisClinet.zrem(`u_todo:${user}`, taskId);
+      redisClinet.zadd(`u_done:${user}`, new Date().getTime(), taskId);
+      redisClinet.lpush(`taskFlow:${taskId}`, {
+        time: getNowTimeString(),
+        action: `commit by ${user}`
+      })
+      res.end(JSON.stringify({ success: true }));
+    });
+  });
+});
 
 
 module.exports = router;

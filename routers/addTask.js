@@ -4,6 +4,12 @@ const express = require('express');
 const router = express.Router();
 const ErrorBo = require('../bo/ErrorBo');
 const TaskBo = require('../bo/TaskBo');
+const moment = require('moment')
+
+function getNowTimeString(){
+  return moment(new Date).format("YYYY-MM-DD HH:mm:ss");
+}
+
 /**
  * 新增任务 
  * title： 任务标题
@@ -26,8 +32,12 @@ router.post('/addTask', (req,res,next) => {
           redisClinet.set(`taskStatus:${tmpTaskId}`, {
             status: '00' //待办
           });
+          redisClinet.lpush(`taskFlow:${tmpTaskId}`, {
+            time: getNowTimeString(),
+            action: `new to ${userList}`
+          })
           userList.forEach(userId => {
-            redisClinet.zadd(`u:${userId}`,new Date().getTime(),tmpTaskId);
+            redisClinet.zadd(`u_todo:${userId}`,new Date().getTime(),tmpTaskId);
           });
           res.end(JSON.stringify({taskId:tmpTaskId}));
           next();
