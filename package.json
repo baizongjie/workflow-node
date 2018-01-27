@@ -18,6 +18,7 @@
   "homepage": "https://github.com/baizongjie/workflow-node#readme",
   "dependencies": {
     "express": "^4.16.2",
+    "node-uuid": "^1.4.8",
     "redis": "^2.8.0"
   }
 }

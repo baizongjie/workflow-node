@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 
 const demo = require('./routers/demo');
 const addTask = require('./routers/addTask');
+const updateTask = require('./routers/updateTask');
 
 app.use(bodyParser.json());
 // 设置请求头
@@ -19,6 +20,7 @@ app.get('/',(req,rsp)=>{
 })
 app.use('/', demo);
 app.use('/api/v1/', addTask);
+app.use('/api/v1/', updateTask);
 
 app.listen(3000, function() { 
     console.log('Express is listening to http://localhost:3000'); 
