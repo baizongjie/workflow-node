@@ -14,11 +14,17 @@ function getNowTimeString(){
  * 新增任务 
  * title： 任务标题
  * url： 任务URL
- * processId: 流程ID
+ * processInfo: {流程信息
+ *   processId: 流程ID
+ *   其他属性
+ * }
+ * 其他属性
  * userList[string]: 用户列表
  */
 router.post('/addTask', (req,res,next) => {
-  let { title, url, processId, userList, ...taskInfo } = req.body;
+  let { title, url, userList, processInfo:{
+    processId, ...processInfo
+  }, ...taskInfo } = req.body;
   if(userList && userList instanceof Array && userList.length > 0){
     let tmpTaskId = uuid.v4();
     console.log(tmpTaskId);
@@ -30,6 +36,13 @@ router.post('/addTask', (req,res,next) => {
           redisClinet.set(`task:${tmpTaskId}`, taskBo);
           redisClinet.set(`taskInfo:${tmpTaskId}`, taskInfo);
           redisClinet.sadd(`taskUser:${tmpTaskId}`, userList);
+          if(processId){
+            redisClinet.get(`process:${processId}`, content => {
+              baseProcessInfo = content ? content : {};
+              redisClinet.set(`process:${processId}`, {...baseProcessInfo, ...processInfo});
+            })
+            redisClinet.lpush(`process_task:${processId}`,tmpTaskId);
+          }
           redisClinet.set(`taskStatus:${tmpTaskId}`, {
             status: '00' //待办
           });

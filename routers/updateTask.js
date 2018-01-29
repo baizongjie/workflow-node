@@ -17,11 +17,15 @@ function throwError(response, errorCode, errorMessage) {
  * @param {*} user 
  * @param {*} checkOkHandler 
  */
-function checkTaskAndUser(response, taskId, user, checkOkHandler) {
+function checkUserAndTask(response, taskId, user, checkOkHandler) {
   if (!user) {
     throwError(response, 'TASK0004', '未传输用户信息');
     return;
   }
+  checkTaskExist(response, taskId, checkOkHandler);
+}
+
+function checkTaskExist(response, taskId, checkOkHandler){
   redisClinet.exists(`task:${taskId}`, success => {
     if (!success) {
       throwError(response, 'TASK0002', '任务不存在');
@@ -52,7 +56,7 @@ function getNowTimeString(){
  */
 router.post('/drawTask', (req, res, next) => {
   const { taskId, user } = req.body;
-  checkTaskAndUser(res, taskId, user, () => {
+  checkUserAndTask(res, taskId, user, () => {
     //同时领取时有并发风险
     redisClinet.get(`taskStatus:${taskId}`, ({ status }) => {
       if (status === '01' && user === user) {
@@ -92,7 +96,7 @@ router.post('/drawTask', (req, res, next) => {
  */
 router.post('/undrawTask', (req, res, next) => {
   const { taskId, user } = req.body;
-  checkTaskAndUser(res, taskId, user, () => {
+  checkUserAndTask(res, taskId, user, () => {
     checkUserDrawedTask(res, taskId, user, () => {
       redisClinet.smembers(`taskUser:${taskId}`, userList => {
         userList.forEach(tmpUser => {
@@ -120,9 +124,10 @@ router.post('/undrawTask', (req, res, next) => {
  * user: 领取用户Id
  */
 router.post('/commitTask', (req, res, next) => {
-  const { taskId, user } = req.body;
-  checkTaskAndUser(res, taskId, user, () => {
+  const { taskId, user, comment } = req.body;
+  checkUserAndTask(res, taskId, user, () => {
     checkUserDrawedTask(res, taskId, user, () => {
+
       redisClinet.set(`taskStatus:${taskId}`, {
         status: '02', //完成
         userId: user
@@ -133,8 +138,76 @@ router.post('/commitTask', (req, res, next) => {
         time: getNowTimeString(),
         action: `commit by ${user}`
       })
+      redisClinet.get(`task:${taskId}`, taskInfo => {
+        if(taskInfo.processId){
+          redisClinet.lpush(`process_comment:${taskInfo.processId}`,{
+            user,
+            comment: comment ? comment : '',
+            time: moment(new Date).format("YYYY-MM-DD HH:mm:ss")
+          })
+        }
+      })
       res.end(JSON.stringify({ success: true }));
     });
+  });
+});
+
+/**
+ * 关闭任务 
+ * taskId: 流程ID
+ */
+router.post('/closeTask', (req, res, next) => {
+  const { taskId } = req.body;
+  checkTaskExist(res, taskId, () => {
+    redisClinet.get(`taskStatus:${taskId}`, ({ status, userId }) => {
+      switch(status){
+        case '03':
+          res.end(JSON.stringify({ success: true }));
+          break;
+        case '02':
+          throwError(res, '', '任务已完成，不可关闭');
+          break;
+        case '01':
+          redisClinet.zrem(`u_todo:${userId}`, taskId);
+          break;
+        case '00':
+          redisClinet.smembers(`taskUser:${taskId}`, userList => {
+            userList.forEach(tmpUser => {
+              redisClinet.zrem(`u_todo:${tmpUser}`, taskId);
+            });
+          });
+          break;
+      }
+      redisClinet.set(`taskStatus:${taskId}`, {
+        status: '03' //已取消
+      })
+      res.end(JSON.stringify({ success: true }));
+    });
+  })
+});
+
+
+/**
+ * 保存任务信息 
+ * taskId: 流程ID
+ * user: 领取用户Id
+ */
+router.post('/saveTask', (req, res, next) => {
+  const { taskId, processInfo:{
+    processId, ...processInfo
+  }, ...taskInfo } = req.body;
+  checkTaskExist(response, taskId, () => {
+    if(processId){
+      redisClinet.get(`process:${processId}`, content => {
+        baseProcessInfo = content ? content : {};
+        redisClinet.set(`process:${processId}`, {...baseProcessInfo, ...processInfo});
+      })
+      redisClinet.lpush(`process_task:${processId}`,taskId);
+    }
+    redisClinet.get(`taskInfo:${taskId}`, content => {
+      redisClinet.set(`taskInfo:${taskId}`, {...content, ...taskInfo});
+    })
+    res.end(JSON.stringify({ success: true }));
   });
 });
 

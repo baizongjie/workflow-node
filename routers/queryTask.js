@@ -21,7 +21,7 @@ router.post('/getTodoTaskList', (req,res,next) => {
   let leftIndex = (page - 1) * pageSize;
   let rightIndex = pageSize * page - 1 ;
 
-  redisClinet.zrange(`u_todo:${userId}`, leftIndex, rightIndex, taskIds => {
+  redisClinet.zrevrange(`u_todo:${userId}`, leftIndex, rightIndex, taskIds => {
     redisClinet.mget(taskIds.map(taskId => {
       return `task:${taskId}`;
     }), result => {
@@ -42,7 +42,7 @@ router.post('/getDoneTaskList', (req,res,next) => {
   let leftIndex = (page - 1) * pageSize;
   let rightIndex = pageSize * page - 1 ;
 
-  redisClinet.zrange(`u_done:${userId}`, leftIndex, rightIndex, taskIds => {
+  redisClinet.zrevrange(`u_done:${userId}`, leftIndex, rightIndex, taskIds => {
     redisClinet.mget(taskIds.map(taskId => {
       return `task:${taskId}`;
     }), result => {
@@ -63,13 +63,19 @@ router.post('/getTaskInfo', (req,res,next) => {
       throwError(res,"",`任务不存在:${taskId}`);
     }else{
       redisClinet.mget([`taskInfo:${taskId}`,`taskStatus:${taskId}`],result => {
-        console.log(result);
         result.map(item => {
           taskInfo = {...taskInfo, ...item};
         })
-        res.end(JSON.stringify(taskInfo));
+        if(taskInfo.processId){
+          redisClinet.get(`process:${taskInfo.processId}`, processInfo => {
+            redisClinet.lrange(`process_comment:${taskInfo.processId}`, 0, -1, processComments => {
+              res.end(JSON.stringify({...taskInfo, processInfo, processComments}));
+            })
+          })
+        }else{
+          res.end(JSON.stringify(taskInfo));
+        }
       })
-
     }
   })
 });

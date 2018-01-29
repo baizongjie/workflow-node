@@ -50,6 +50,17 @@ module.exports = {
   lpush: (key, value) => {
     client.lpush(key, getValueString(value));
   },
+  lrange: (key, leftIndex, rightIndex, callback) => {
+    client.lrange(key, leftIndex, rightIndex, (err, res) => {
+      callback(res.map(item => {
+        if (typeof item == 'string') {
+          return JSON.parse(item);
+        } else {
+          return item;
+        } 
+      }))
+    });
+  },
   zadd: (key, score, value) => {
     client.zadd(key, score, value);
   },
@@ -58,6 +69,11 @@ module.exports = {
   },
   zrange: (setName, leftIndex, rightIndex, callback) => {
     client.zrange(setName, leftIndex, rightIndex, (err, res) => {
+      callback(res);
+    })
+  },
+  zrevrange: (setName, leftIndex, rightIndex, callback) => {
+    client.zrevrange(setName, leftIndex, rightIndex, (err, res) => {
       callback(res);
     })
   },
