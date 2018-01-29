@@ -22,27 +22,19 @@ function getNowTimeString(){
  * userList[string]: 用户列表
  */
 router.post('/addTask', (req,res,next) => {
-  let { title, url, userList, processInfo:{
+  let { title, url, userList, prevTaskId, processInfo:{
     processId, ...processInfo
   }, ...taskInfo } = req.body;
   if(userList && userList instanceof Array && userList.length > 0){
     let tmpTaskId = uuid.v4();
     console.log(tmpTaskId);
+    let taskBo = new TaskBo(title, url, tmpTaskId, processId);
     //生成一个Redis内唯一的任务ID
     let newIdFunc = function(){
-      redisClinet.setnx(`task:${tmpTaskId}`,'bbb',success => {
+      redisClinet.setnx(`task:${tmpTaskId}`,taskBo, success => {
         if(success){
-          let taskBo = new TaskBo(title, url, tmpTaskId, processId);
-          redisClinet.set(`task:${tmpTaskId}`, taskBo);
           redisClinet.set(`taskInfo:${tmpTaskId}`, taskInfo);
           redisClinet.sadd(`taskUser:${tmpTaskId}`, userList);
-          if(processId){
-            redisClinet.get(`process:${processId}`, content => {
-              baseProcessInfo = content ? content : {};
-              redisClinet.set(`process:${processId}`, {...baseProcessInfo, ...processInfo});
-            })
-            redisClinet.lpush(`process_task:${processId}`,tmpTaskId);
-          }
           redisClinet.set(`taskStatus:${tmpTaskId}`, {
             status: '00' //待办
           });
@@ -53,6 +45,18 @@ router.post('/addTask', (req,res,next) => {
           userList.forEach(userId => {
             redisClinet.zadd(`u_todo:${userId}`,new Date().getTime(),tmpTaskId);
           });
+          if(prevTaskId){
+            redisClinet.exists(`task:${prevTaskId}`, success => {
+              redisClinet.sadd(`task_next:${prevTaskId}`,tmpTaskId);
+            })
+          }
+          if(processId){
+            redisClinet.get(`process:${processId}`, content => {
+              baseProcessInfo = content ? content : {};
+              redisClinet.set(`process:${processId}`, {...baseProcessInfo, ...processInfo});
+            })
+            redisClinet.lpush(`process_task:${processId}`,tmpTaskId);
+          }
           res.end(JSON.stringify({taskId:tmpTaskId}));
           next();
         }else{

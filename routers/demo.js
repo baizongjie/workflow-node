@@ -21,14 +21,17 @@ router.get('/add', (req, res, next) => {
     redisClinet.set('hello', data);
     redisClinet.increase('inc' , value => {
         res.end(value + '');
-        next();
     }, 2)
-
 })
+
 router.get('/show', (req, res, next) => {
-    redisClinet.get('hello',  value => {
-        res.end(JSON.stringify(value));
-        next();
+    let mult = redisClinet.multi();
+    mult.set('key1','1');
+    redisClinet.set('key1','2');
+    mult.set('key2','3');
+    mult.exec((err,result) => {
+        mult.discard();
+        res.end(JSON.stringify({result:'ok'}));
     })
 })
 module.exports = router;

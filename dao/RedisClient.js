@@ -50,11 +50,18 @@ module.exports = {
   lpush: (key, value) => {
     client.lpush(key, getValueString(value));
   },
+  lpop: key => {
+    client.lpop(key);
+  },
   lrange: (key, leftIndex, rightIndex, callback) => {
     client.lrange(key, leftIndex, rightIndex, (err, res) => {
       callback(res.map(item => {
         if (typeof item == 'string') {
-          return JSON.parse(item);
+          try{
+            return JSON.parse(item);
+          }catch(err){
+            return item;
+          }
         } else {
           return item;
         } 
@@ -110,5 +117,8 @@ module.exports = {
         callback(res);
       })
     }
+  },
+  multi: () => {
+    return client.multi();
   }
 }
