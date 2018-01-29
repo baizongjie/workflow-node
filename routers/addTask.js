@@ -18,7 +18,7 @@ function getNowTimeString(){
  * userList[string]: 用户列表
  */
 router.post('/addTask', (req,res,next) => {
-  let { title, url, processId, userList } = req.body;
+  let { title, url, processId, userList, ...taskInfo } = req.body;
   if(userList && userList instanceof Array && userList.length > 0){
     let tmpTaskId = uuid.v4();
     console.log(tmpTaskId);
@@ -28,6 +28,7 @@ router.post('/addTask', (req,res,next) => {
         if(success){
           let taskBo = new TaskBo(title, url, tmpTaskId, processId);
           redisClinet.set(`task:${tmpTaskId}`, taskBo);
+          redisClinet.set(`taskInfo:${tmpTaskId}`, taskInfo);
           redisClinet.sadd(`taskUser:${tmpTaskId}`, userList);
           redisClinet.set(`taskStatus:${tmpTaskId}`, {
             status: '00' //待办

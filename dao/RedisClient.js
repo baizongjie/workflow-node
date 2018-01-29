@@ -56,11 +56,25 @@ module.exports = {
   zrem: (setName, key) => {
     client.zrem(setName, key);
   },
+  zrange: (setName, leftIndex, rightIndex, callback) => {
+    client.zrange(setName, leftIndex, rightIndex, (err, res) => {
+      callback(res);
+    })
+  },
   get: (key, callback) => client.get(key, (err, res) => {
     if (typeof res == 'string') {
       callback(JSON.parse(res));
     } else {
       callback(res);
+    }
+  }),
+  mget: (keys, callback) => client.mget(keys, (err, res) => {
+    if(!res){
+      callback([]);
+    }else{
+      callback(res.map(item => {
+        return typeof item == 'string' ? JSON.parse(item) : item;
+      }));
     }
   }),
   exists: (key, callback) => client.exists(key, (err, res) => {
