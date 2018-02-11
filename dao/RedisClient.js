@@ -30,6 +30,9 @@ module.exports = {
         }
       })
   },
+  setnxSync : (key, value) => new Promise((resolve, reject) => {
+    setnx(key, value, resolve);
+  }),
   sadd: (key, ...value) => {
     client.sadd(key, ...value);
   },
