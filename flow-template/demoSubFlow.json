@@ -1,0 +1,29 @@
+{
+  "flowName": "测试子流程",
+  "flowCode": "subFlow",
+  "version": "1.0.0",
+  "description": "这是一个子流程测试流程模板，用于验证和展示用法",
+  "flowDetail": [
+    {
+      "nodeName": "子流程第一节点",
+      "nodeCode": "sub_node_1",
+      "nodeType": "init",
+      "nodeUrl": "/subflow/page01",
+      "next": ["sub_node_2"]
+    },
+    {
+      "nodeName": "子流程第二节点",
+      "nodeCode": "sub_node_2",
+      "nodeType": "normal",
+      "nodeUrl": "/subflow/page01",
+      "next": ["sub_node_3"]
+    },
+    {
+      "nodeName": "子流程第三节点",
+      "nodeCode": "sub_node_3",
+      "nodeType": "end",
+      "nodeUrl": "/subflow/page01",
+      "next": ["end"]
+    }
+  ]
+}

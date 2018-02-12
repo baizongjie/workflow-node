@@ -23,13 +23,13 @@
             "nodeCode":"node_3",
             "nodeType":"multi",
             "nodeUrl":"/flow/page01",
-            "next":["node_4"]
+            "next":["node_4","node_5"]
         },
         {
             "nodeName":"第四节点（子流程类型）",
             "nodeCode":"node_4",
             "nodeType":"subFlow",
-            "nodeUrl":"subFlow01",
+            "nodeUrl":"subFlow@latest",
             "next":["node_5"]
         },
         {
@@ -39,34 +39,5 @@
             "nodeUrl":"/flow/page01",
             "next":["end","node_1"]
         }
-    ],
-    "subFlow":{
-        "subFlow01":{
-            "flowName":"一号子流程",
-            "flowCode":"subFlow01",
-            "flowDetail":[
-                {
-                    "nodeName":"子流程第一节点",
-                    "nodeCode":"sub_node_1",
-                    "nodeType":"init",
-                    "nodeUrl":"/subflow/page01",
-                    "next":["sub_node_2"]
-                },
-                {
-                    "nodeName":"子流程第二节点",
-                    "nodeCode":"sub_node_2",
-                    "nodeType":"normal",
-                    "nodeUrl":"/subflow/page01",
-                    "next":["sub_node_3"]
-                },
-                {
-                    "nodeName":"子流程第三节点",
-                    "nodeCode":"sub_node_3",
-                    "nodeType":"end",
-                    "nodeUrl":"/subflow/page01",
-                    "next":["end"]
-                }
-            ]
-        }
-    }
+    ]
 }

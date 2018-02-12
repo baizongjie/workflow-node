@@ -43,18 +43,18 @@ files.map( file => {
             ...node,
         };
     })
-    for (let node of Object.values(tmpNodes)){
-        node.nextNode = new Array();
-        node.next.map( nodeCode => {
-            if(nodeCode === 'end'){
-                node.nextNode.push({
-                    nodeType:'end'
-                })
-            }else{
-                node.nextNode.push(tmpNodes[nodeCode]);
-            }
-        })
-    }
+    // for (let node of Object.values(tmpNodes)){
+    //     node.nextNode = new Array();
+    //     node.next.map( nodeCode => {
+    //         if(nodeCode === 'end'){
+    //             node.nextNode.push({
+    //                 nodeType:'end'
+    //             })
+    //         }else{
+    //             node.nextNode.push(tmpNodes[nodeCode]);
+    //         }
+    //     })
+    // }
 
     flowTemplates[`${flowCode}@${version}`] = {
         flowCode,
@@ -64,6 +64,8 @@ files.map( file => {
         ...tmpNodes,
 
     }
+
+    log.info(`加载流程模板(${flowCode}@${version})完毕`);
 });
 
 Object.keys(flowLatestVersion).map( flowCode => {
