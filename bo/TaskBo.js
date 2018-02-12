@@ -1,4 +1,4 @@
-const moment = require('moment');
+const timeUtil = require('../util/TimeUtil');
 
 class TaskBo {
   constructor(title, url, taskId, processId){
@@ -6,7 +6,7 @@ class TaskBo {
     this.url = url;
     this.taskId = taskId;
     this.processId = processId;
-    this.createTime = moment(new Date).format("YYYY-MM-DD HH:mm:ss.SSS");
+    this.createTime = timeUtil.getNowTimeString();
   }
 }
 

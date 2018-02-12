@@ -1,2 +1,7 @@
-[2018-02-11T16:06:31.403] [DEBUG] workfow_api - hello
-[2018-02-11T16:07:40.472] [DEBUG] workfow_api - hello
+[2018-02-12T08:55:41.367] [INFO] workfow_api - 创建任务:node_1
+[2018-02-12T08:55:41.370] [INFO] workfow_api - 生成任务实例，ID:38eeed0b-d5a6-4169-a5e4-72b08dabf4dc
+[2018-02-12T08:55:41.377] [INFO] workfow_api - 初始化任务相关信息完毕，ID:38eeed0b-d5a6-4169-a5e4-72b08dabf4dc
+[2018-02-12T08:55:41.378] [INFO] workfow_api - 用户bai_zj尝试领取任务，ID:38eeed0b-d5a6-4169-a5e4-72b08dabf4dc
+[2018-02-12T08:55:41.382] [INFO] workfow_api - 准备领取任务
+[2018-02-12T08:55:41.384] [INFO] workfow_api - 领取任务完毕
+[2018-02-12T08:55:41.384] [INFO] workfow_api - 流程初始化完毕:demoFlow@1.0.0

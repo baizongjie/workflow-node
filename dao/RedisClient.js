@@ -15,7 +15,7 @@ function getValueString(value) {
   }
 }
 
-module.exports = {
+const redisDao = {
   set: (key, value) => {
     client.set(key, getValueString(value));
   },
@@ -30,8 +30,8 @@ module.exports = {
         }
       })
   },
-  setnxSync : (key, value) => new Promise((resolve, reject) => {
-    setnx(key, value, resolve);
+  setnxSync: (key, value) => new Promise((resolve, reject) => {
+    redisDao.setnx(key, value, resolve);
   }),
   sadd: (key, ...value) => {
     client.sadd(key, ...value);
@@ -41,6 +41,9 @@ module.exports = {
       callback(res);
     })
   },
+  smembersAysnc: key => new Promise((resolve, reject) => {
+    redisDao.smembers(key, resolve);
+  }),
   sismember: (setName, key, callback) => {
     client.sismember(setName, key, (err, res) => {
       if (res === 1) {
@@ -87,6 +90,7 @@ module.exports = {
       callback(res);
     })
   },
+
   get: (key, callback) => client.get(key, (err, res) => {
     if (typeof res == 'string') {
       callback(JSON.parse(res));
@@ -94,6 +98,10 @@ module.exports = {
       callback(res);
     }
   }),
+  getAsync: key => new Promise((resolve, reject) => {
+    redisDao.get(key, resolve);
+  }),
+
   mget: (keys, callback) => client.mget(keys, (err, res) => {
     if(!res){
       callback([]);
@@ -103,6 +111,7 @@ module.exports = {
       }));
     }
   }),
+
   exists: (key, callback) => client.exists(key, (err, res) => {
     if (res === 1) {
       callback(true);
@@ -110,6 +119,10 @@ module.exports = {
       callback(false);
     }
   }),
+  existsAsync: key => new Promise((resolve, reject) => {
+    redisDao.exists(key, resolve);
+  }),
+
   increase: (key, callback, step) => {
     if (step && (typeof step == 'number')) {
       client.incrby(key, step, (err, res) => {
@@ -123,5 +136,14 @@ module.exports = {
   },
   multi: () => {
     return client.multi();
-  }
+  },
+  runMultiAysnc: multi => new Promise((resolve, reject) => {
+    multi.exec((err,result) => {
+      resolve(result)
+    })
+  })
+
 }
+
+
+module.exports = redisDao;
