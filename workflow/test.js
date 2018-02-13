@@ -1,6 +1,6 @@
 const api = require('./api');
 
-async function func(reqId) {
+async function normal(reqId) {
   console.log('************************************')
   console.log('新建流程')
   console.log('************************************')
@@ -21,20 +21,38 @@ async function func(reqId) {
   console.log('第一人领取并处理任务')
   console.log('************************************')
   await api(reqId).receiveTask(nextTaskIds2[0],'bai_zj');
-  await api(reqId).commitTask(nextTaskIds2[0],'bai_zj',['bai_zj','wangy_1121','guoy'],'node_5');
+  await api(reqId).commitTask(nextTaskIds2[0],'bai_zj',['bai_zj','wangy_1121','guoy'],'node_4');
   console.log('************************************')
   console.log('第二人领取并处理任务')
   console.log('************************************')
   await api(reqId).receiveTask(nextTaskIds2[1],'wangy_1121');
-  await api(reqId).commitTask(nextTaskIds2[1],'wangy_1121',['bai_zj','wangy_1121','guoy'],'node_5');
+  await api(reqId).commitTask(nextTaskIds2[1],'wangy_1121',['bai_zj','wangy_1121','guoy'],'node_4');
   console.log('************************************')
   console.log('最后一人领取并处理任务')
   console.log('************************************')
   await api(reqId).receiveTask(nextTaskIds2[2],'guoy');
-  await api(reqId).commitTask(nextTaskIds2[2],'guoy',['bai_zj','wangy_1121','guoy'],'node_5');
+  await api(reqId).commitTask(nextTaskIds2[2],'guoy',['bai_zj','wangy_1121','guoy'],'node_4');
 }
 
-func('12345');
+async function subFlowTest(reqId) {
+  // console.log('************************************')
+  // console.log('新建流程')
+  // console.log('************************************')
+  // let { processId, taskId } = await api(reqId).initProcess('bai_zj','demoFlow');
+  // console.log('************************************')
+  // console.log('创建子流程')
+  // console.log('************************************')
+  // await api(reqId).initSubProcess(taskId, ['wangy_1121','songzhengxuan'], 'subFlow');
+
+  console.log('************************************')
+  console.log('关闭子流程')
+  console.log('************************************')
+  await api(reqId).finishProcess('fc8f287e-e017-4a32-ba26-b7f1ee4e872a');
+
+}
+
+
+subFlowTest('12345');
 // func('54321');
 
 // var sleep =  time =>

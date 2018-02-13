@@ -23,18 +23,11 @@
             "nodeCode":"node_3",
             "nodeType":"multi",
             "nodeUrl":"/flow/page01",
-            "next":["node_4","node_5"]
+            "next":["node_4"]
         },
         {
-            "nodeName":"第四节点（子流程类型）",
+            "nodeName":"第四节点（一般类型，抢占式）",
             "nodeCode":"node_4",
-            "nodeType":"subFlow",
-            "nodeUrl":"subFlow@latest",
-            "next":["node_5"]
-        },
-        {
-            "nodeName":"第五节点（一般类型，抢占式）",
-            "nodeCode":"node_5",
             "nodeType":"normal",
             "nodeUrl":"/flow/page01",
             "next":["end","node_1"]

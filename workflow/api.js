@@ -1,9 +1,10 @@
 const redisClinet = require('../dao/RedisClient');
 const flowTemplates = require('./init');
 const TaskBo = require('../bo/TaskBo');
-const ProcessBo = require('../bo/ProcessBo');
+const ProcessBo = require('./bo/ProcessBo');
 const uuid = require('node-uuid');
 const timeUtil = require('../util/TimeUtil');
+const ProcessStatus = require('./enum/ProcessStatus');
 
 module.exports = requestId => {
   const log = require('../logger').getLogger(`workfow_api_${requestId}`);
@@ -19,7 +20,8 @@ module.exports = requestId => {
     ...taskInfo
   }) {
     if (userList && userList instanceof Array && userList.length > 0) {
-      log.info(`创建任务:${taskInfo.nodeInfo.nodeCode}`);
+      let taskNodeCode = taskInfo.nodeInfo.nodeCode;
+      log.info(`创建任务:${taskNodeCode}`);
       let taskId = uuid.v4();
       let taskBo = new TaskBo(title, url, taskId, processId, prevTaskId);
       // 生成一个Redis内唯一的任务ID
@@ -44,7 +46,7 @@ module.exports = requestId => {
         })
       );
       multi.lpush(
-        `taskFlow:${taskId}`,
+        `taskLifecycle:${taskId}`,
         JSON.stringify({
           time: timeUtil.getNowTimeString(),
           action: `new to ${userList}`
@@ -56,18 +58,17 @@ module.exports = requestId => {
       if (prevTaskId && (await redisClinet.existsAsync(`task:${prevTaskId}`))) {
         multi.sadd(`task_next:${prevTaskId}`, taskId);
       }
-      if (processInfo) {
-        let baseProcessInfo = await redisClinet.getAsync(
-          `process:${processId}`
-        );
-        multi.set(
-          `process:${processId}`,
-          JSON.stringify({
-            ...(baseProcessInfo ? baseProcessInfo : {}),
-            ...processInfo
-          })
-        );
-      }
+      let baseProcessInfo = await redisClinet.getAsync(
+        `process:${processId}`
+      );
+      multi.set(
+        `process:${processId}`,
+        JSON.stringify({
+          ...(baseProcessInfo ? baseProcessInfo : {}),
+          ...processInfo,
+          currentNode: taskNodeCode
+        })
+      );
       multi.lpush(`process_task:${processId}`, taskId);
       let result = await redisClinet.runMultiAysnc(multi);
       log.info(`初始化任务相关信息完毕，ID:${taskId}`);
@@ -101,8 +102,17 @@ module.exports = requestId => {
     return await redisClinet.existsAsync(`task:${taskId}`);
   }
 
+    /**
+   * 检查流程是否存在
+   *
+   * @param {*} processId
+   */
+  async function checkProcessExist(processId) {
+    return await redisClinet.existsAsync(`process:${processId}`);
+  }
+
   const api = {
-    initProcess: async (creater, flowCode, flowVersion = 'latest') => {
+    initProcess: async (creater, flowCode, flowVersion = 'latest', parentTask = null) => {
       const flowTemplate = flowTemplates[`${flowCode}@${flowVersion}`];
       //检查参数合法性
       if (flowTemplate) {
@@ -112,7 +122,8 @@ module.exports = requestId => {
         let processBo = new ProcessBo(
           flowTemplate.flowName,
           flowTemplate.flowCode,
-          flowTemplate.version
+          flowTemplate.version,
+          parentTask
         );
         let newIdFunc = async () => {
           let result = await redisClinet.setnxSync(
@@ -137,7 +148,7 @@ module.exports = requestId => {
             processId: processId,
             flowName: flowTemplate.flowName,
             flowCode: flowTemplate.flowCode,
-            version: flowTemplate.version
+            version: flowTemplate.version,
           },
           nodeInfo: {
             nodeName: processNode.nodeName,
@@ -153,6 +164,102 @@ module.exports = requestId => {
       } else {
         log.error(`流程模板不存在:${flowCode}@${flowVersion}`);
         return false;
+      }
+    },
+    /**
+     * 创建子流程
+     */
+    initSubProcess: async (taskId, processStarters, flowCode, flowVersion = 'latest') => {
+      log.info(`任务${taskId}尝试创建子流程${flowCode}@${flowVersion}`);
+      //创建子流程前置条件要求 主任务必须处于已领取状态，生成后任务锁定，不允许撤销领取，但可以继续提交
+      let { status } = await redisClinet.getAsync(`taskStatus:${taskId}`);
+      if(status !== '01'){
+        log.error(`任务不处于领取状态，不能创建子流程，ID:${taskId}`);
+        return false;
+      }
+      // 创建子流程
+      let subProcessList = [];
+      let subProcessTaskList = [];
+      for(let starter of processStarters){
+        let processInfo = await api.initProcess(starter,flowCode,flowVersion,taskId);
+        subProcessList.push(processInfo.processId);
+        subProcessTaskList.push(processInfo.taskId);
+      }
+
+      //锁定任务状态并关联子流程
+      redisClinet.get(`taskStatus:${taskId}`, result => {
+        redisClinet.set(
+          `taskStatus:${taskId}`,{
+            ...result,
+            status: '09',  //中断
+            subProcess: subProcessList
+          }
+        );
+      })
+      redisClinet.lpush(
+        `taskLifecycle:${taskId}`,
+        {
+          time: timeUtil.getNowTimeString(),
+          action: `initSubProcess`
+        }
+      );
+      log.info(`任务${taskId}尝试子流程创建完毕，新生成任务(${subProcessTaskList})`);
+      return {subProcessList, subProcessTaskList}
+    },
+
+    finishProcess: async processId => {
+      log.info(`准备关闭流程，ID:${processId}`);
+      // 检查流程信息
+      if(!await checkProcessExist(processId)){
+        log.error(`流程不存在，ID:${processId}`);
+        return false;
+      }
+      // 修改流程状态
+      let baseProcessInfo = await redisClinet.getAsync(`process:${processId}`);
+      if(baseProcessInfo.status === ProcessStatus.PROCESS_FINISH){
+        log.info(`流程已处于关闭状态`);
+        return true;
+      }
+      redisClinet.set(
+        `process:${processId}`,{
+          ...baseProcessInfo,
+          status: ProcessStatus.PROCESS_FINISH      
+        }
+      );
+      // 检查是否有父任务
+      let { parentTask } = baseProcessInfo;
+      if(parentTask){
+        log.info(`检查到流程有关联父任务节点，准备检查相关兄弟流程状态`);
+
+        let parentTaskStatus = await redisClinet.getAsync(`taskStatus:${parentTask}`);
+        let { subProcess } = parentTaskStatus;
+        // 检查除自己外的其他流程状态
+        for (subProcessId of subProcess){
+          if(subProcessId !== processId){
+            let { status } = await redisClinet.getAsync(`process:${subProcessId}`);
+            if(status === ProcessStatus.PROCESS_RUNNING){
+              log.info(`存在正在运行的兄弟流程，ID:${subProcessId}`);
+              log.info(`本流程已成功关闭，ID:${processId}`);
+              return true;
+            }
+          }
+        }
+        log.info(`所有相关兄弟流程状态均结束，调整父任务状态`);
+        redisClinet.set(
+          `taskStatus:${parentTask}`,{
+            ...parentTaskStatus,
+            status: '01'      
+          }
+        );
+        redisClinet.lpush(
+          `taskLifecycle:${parentTask}`,
+          {
+            time: timeUtil.getNowTimeString(),
+            action: `finishAllSubProcess`
+          }
+        );
+        log.info(`本流程已成功关闭,父任务状态也已调整，ID:${processId}`);
+        return true;
       }
     },
 
@@ -190,7 +297,7 @@ module.exports = requestId => {
           })
         );
         multi.lpush(
-          `taskFlow:${taskId}`,
+          `taskLifecycle:${taskId}`,
           JSON.stringify({
             time: timeUtil.getNowTimeString(),
             action: `draw by ${user}`
@@ -202,12 +309,7 @@ module.exports = requestId => {
       }
     },
 
-    commitTask: async (
-      taskId,
-      user,
-      nextUserList,
-      nextNodeCode = '_default'
-    ) => {
+    commitTask: async (taskId, user, nextUserList, nextNodeCode = '_default') => {
       log.info(`用户${user}尝试提交任务，ID:${taskId}`);
       //检查用户可提交
       if (!await checkTaskExist(taskId)) {
@@ -251,7 +353,7 @@ module.exports = requestId => {
       multi.zrem(`u_todo:${user}`, taskId);
       multi.zadd(`u_done:${user}`, new Date().getTime(), taskId);
       multi.lpush(
-        `taskFlow:${taskId}`,
+        `taskLifecycle:${taskId}`,
         JSON.stringify({
           time: timeUtil.getNowTimeString(),
           action: `commit by ${user}`
@@ -259,14 +361,16 @@ module.exports = requestId => {
       );
       let result = await redisClinet.runMultiAysnc(multi);
       log.info(`任务提交完毕，准备生成下一环节任务`);
+      let { prevTaskId, processId } = await redisClinet.getAsync(`task:${taskId}`);
+
       //同时生成下一步任务
       if (nextTaskNodeCode === 'end') {
         log.info(`下一节点为结束节点，无需生成任务，流程结束`);
+        api.finishProcess(processId);
         // 需补充流程状态信息，并入库
         return true;
       }
       // 检查当前任务是否是多人任务，如果是多人任务需要等所有人都提交后才能进入下一环节
-      let { prevTaskId, processId } = await redisClinet.getAsync(`task:${taskId}`);
       if (nodeType === 'multi') {
         log.info(`当前节点为并行任务节点，即将检查兄弟任务状态是否全部完成`);
         taskIdList = await redisClinet.smembersAysnc(`task_next:${prevTaskId}`);
@@ -331,7 +435,7 @@ module.exports = requestId => {
         default:
           break;
       }
-      log.info(`生成下一环节任务任务，提交任务结束`);
+      log.info(`生成下一环节任务(${nextTaskId})，提交任务结束`);
       return nextTaskId;
     }
   };
