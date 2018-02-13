@@ -307,7 +307,7 @@ module.exports = requestId => {
           });
           nextTaskId.push(tmpTaskId);
           break;
-        case 'multi': //新建多人任务
+        case 'multi': // 新建多人任务
           for(let tmpUser of nextUserList){
             let tmpTaskId = await createTask({
               title: nextNodeTemplate.nodeName,
@@ -326,8 +326,13 @@ module.exports = requestId => {
             });
             nextTaskId.push(tmpTaskId);
           }
-
           break;
+        case 'subFlow': // 创建子流程
+          let [flowCode, flowVersion] = nextNodeTemplate.nodeUrl.split('@');
+          for(let tmpUser of nextUserList){
+            let tmpTaskId = await api.initProcess(tmpUser, flowCode, flowVersion);
+            nextTaskId.push(tmpTaskId);
+          }
         default:
           break;
       }

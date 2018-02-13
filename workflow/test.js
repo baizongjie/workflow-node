@@ -21,20 +21,27 @@ async function func(reqId) {
   console.log('第一人领取并处理任务')
   console.log('************************************')
   await api(reqId).receiveTask(nextTaskIds2[0],'bai_zj');
-  await api(reqId).commitTask(nextTaskIds2[0],'bai_zj',['bai_zj','wangy_1121','guoy'],'node_5');
+  await api(reqId).commitTask(nextTaskIds2[0],'bai_zj',['bai_zj','guoy'],'node_4');
   console.log('************************************')
   console.log('第二人领取并处理任务')
   console.log('************************************')
   await api(reqId).receiveTask(nextTaskIds2[1],'wangy_1121');
-  await api(reqId).commitTask(nextTaskIds2[1],'wangy_1121',['bai_zj','wangy_1121','guoy'],'node_5');
+  await api(reqId).commitTask(nextTaskIds2[1],'wangy_1121',['bai_zj','guoy'],'node_4');
   console.log('************************************')
   console.log('最后一人领取并处理任务')
   console.log('************************************')
   await api(reqId).receiveTask(nextTaskIds2[2],'guoy');
-  await api(reqId).commitTask(nextTaskIds2[2],'guoy',['bai_zj','wangy_1121','guoy'],'node_5');
+  let nextTaskIds3 = await api(reqId).commitTask(nextTaskIds2[2],'guoy',['bai_zj','guoy'],'node_4');
+  // console.log('************************************')
+  // console.log('处理最后一个环节的任务')
+  // console.log('************************************')
+  // await api(reqId).receiveTask(nextTaskIds3[0],'bai_zj');
+  // await api(reqId).commitTask(nextTaskIds3[0],'bai_zj');
+ 
 }
 
 func('12345');
+
 // func('54321');
 
 // var sleep =  time =>

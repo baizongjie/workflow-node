@@ -5,6 +5,7 @@ const files = fs.readdirSync(`${__dirname}/${templateDir}`);
 
 const flowTemplates = {};
 const flowLatestVersion = {};
+const flowCheckList = [];
 
 function checkAndUpdateLatestVersion(flowCode, version){
     if(!flowLatestVersion[flowCode]){
@@ -42,6 +43,9 @@ files.map( file => {
         tmpNodes[node.nodeCode] = {
             ...node,
         };
+        if(node.nodeType === 'subFlow'){
+            flowCheckList.push(node.nodeUrl);
+        }
     })
     // for (let node of Object.values(tmpNodes)){
     //     node.nextNode = new Array();
@@ -72,5 +76,11 @@ Object.keys(flowLatestVersion).map( flowCode => {
     flowTemplates[flowCode] = flowTemplates[`${flowCode}@${flowLatestVersion[flowCode]}`];
     flowTemplates[`${flowCode}@latest`] = flowTemplates[`${flowCode}@${flowLatestVersion[flowCode]}`];
 })
+
+for(let templateCode of flowCheckList){
+    if(!flowTemplates[templateCode]){
+        throw new Error(`流程模板校验失败，存在未找到的流程:${templateCode}`);
+    }
+}
 
 module.exports = flowTemplates;
